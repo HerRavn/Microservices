@@ -11,7 +11,7 @@ public class GameLogicApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(GameLogicApplication.class, args);
-
+/*
         // test to fetch a deck, draw a card, remove it from the main deck and add it to the opentabledeck
 
             // Create the fetcher
@@ -37,7 +37,7 @@ public class GameLogicApplication {
             for (Card c : openTableDeck) {
                 System.out.println(c.getValue() + " of " + c.getSuite());
             }
-
+*/
         }
 	}
 
