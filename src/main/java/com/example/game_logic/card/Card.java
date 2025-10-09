@@ -1,4 +1,4 @@
-package com.example.game_logic;
+package com.example.game_logic.card;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

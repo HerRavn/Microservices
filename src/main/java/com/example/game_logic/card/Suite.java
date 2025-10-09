@@ -1,4 +1,4 @@
-package com.example.game_logic;
+package com.example.game_logic.card;
 
 public enum Suite {
     SPADES,
