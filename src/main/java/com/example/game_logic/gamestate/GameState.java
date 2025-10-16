@@ -16,42 +16,26 @@ public class GameState {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "game_id")
     private Long gameId;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JoinColumn(name = "main_deck_id")
     private Deck mainDeck;
 
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "open_deck_id")
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @JoinColumn(name = "open_table_deck_id")
     private Deck openTableDeck;
 
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "player_deck_id")
-    private Deck playerDeck;
-
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "computer_deck_id")
-    private Deck computerDeck;
-
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JoinColumn(name = "player_hand_id")
     private Deck playerHand;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JoinColumn(name = "computer_hand_id")
     private Deck computerHand;
 
-    @Column(name = "player_score")
     private int playerScore;
-
-    @Column(name = "computer_score")
     private int computerScore;
-
-    @Column(name = "round_number")
     private int roundNumber;
-
-    @Column(name = "is_game_over")
     private boolean isGameOver;
 }

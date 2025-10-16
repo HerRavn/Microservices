@@ -1,5 +1,6 @@
 package com.example.game_logic.card;
 
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -19,7 +20,6 @@ public class CardService {
             Map.entry(12, "queen"),
             Map.entry(13, "king")
     );
-
 
     public void initCards() {
         if (cardRepo.count() == 52) return; // Already initialized
@@ -43,4 +43,7 @@ public class CardService {
         return cardRepo.findAll();
     }
 
+    public Card getCardById(Long cardId){
+        return cardRepo.findById(cardId).orElse(null);
+    }
 }

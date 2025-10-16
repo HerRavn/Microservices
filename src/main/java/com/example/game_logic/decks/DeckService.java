@@ -4,75 +4,100 @@ import com.example.game_logic.card.Card;
 import com.example.game_logic.card.CardRepo;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
 
 @Service
 public class DeckService {
+
     private final DeckRepo deckRepo;
     private final CardRepo cardRepo;
-    private final Random random = new Random();
 
     public DeckService(DeckRepo deckRepo, CardRepo cardRepo) {
         this.deckRepo = deckRepo;
         this.cardRepo = cardRepo;
     }
 
-    public Deck createDeck(String deckName, List<Long> cardIds) {
+    public Deck createDeck(String name, List<Long> cardIds) {
         Deck deck = new Deck();
-        deck.setDeckName(deckName);
+        deck.setDeckName(name);
         deck.setCardIds(cardIds);
-        return deckRepo.save(deck);
+        deckRepo.save(deck);
+        return populateDeckCards(deck);
     }
-    public Deck saveDeck(Deck deck) {
-        return deckRepo.save(deck);
-    }
-
-
 
     public Deck getDeck(Long id) {
-        return deckRepo.findById(id).orElse(null);
+        return deckRepo.findById(id).map(this::populateDeckCards).orElse(null);
     }
 
-    public Card drawCard(Long deckId){
-        Optional<Deck> optionalDeck = deckRepo.findById((deckId));
-        if(optionalDeck.isEmpty()){return null;}
-
-        Deck deck = optionalDeck.get();
-        List<Long> cardIds = deck.getCardIds();
-        if (cardIds.isEmpty()) return null; // No cards left
-
-        int index = random.nextInt(cardIds.size());
-        Long drawnCardId = cardIds.remove(index); // remove from deck
-
-        deckRepo.save(deck); // save updated deck
-
-        return cardRepo.findById(drawnCardId).orElse(null);
-
+    public Deck saveDeck(Deck deck) {
+        deckRepo.save(deck);
+        return populateDeckCards(deck);
     }
 
-    public String addCardById(Card card, Long deckId) {
-        Optional<Deck> optionalDeck = deckRepo.findById(deckId);
-        if (optionalDeck.isEmpty()) {
-            return "Deck not found";
-        }
-
-        Deck deck = optionalDeck.get();
+    /** Draw a card from the top of the deck */
+    public List<Long> drawCards(Long deckId, int count) {
+        Deck deck = deckRepo.findById(deckId).orElse(null);
+        if (deck == null || deck.getCardIds().isEmpty()) return Collections.emptyList();
 
         List<Long> cardIds = deck.getCardIds();
-        if (cardIds == null) {
-            cardIds = new ArrayList<>();
-            deck.setCardIds(cardIds);
-        }
+        // Ensure we don't draw more cards than are available
+        int actualCount = Math.min(count, cardIds.size());
 
-        cardIds.add(card.getId()); // add the card ID to the deck
+        // Extract the first 'actualCount' card IDs
+        List<Long> drawnCardIds = new ArrayList<>(cardIds.subList(0, actualCount));
 
-        deckRepo.save(deck); // persist changes
+        // Remove the drawn cards from the deck
+        cardIds.subList(0, actualCount).clear();
+        deckRepo.save(deck);
 
-        return "Card " + card.getId() + " added to deck " + deck.getDeckName();
+        // Return the drawn card IDs
+        return drawnCardIds;
     }
 
+
+    /** Shuffle a deck */
+    public Deck shuffleDeck(Long deckId) {
+        Deck deck = deckRepo.findById(deckId).orElse(null);
+        if (deck == null) return null;
+
+        Collections.shuffle(deck.getCardIds());
+        return deckRepo.save(deck);
+    }
+    public Deck addCardToDeck(Long deckId, Card card) {
+        Deck deck = deckRepo.findById(deckId)
+                .orElseThrow(() -> new RuntimeException("Deck not found with id: " + deckId));
+
+        deck.getCardIds().add(card.getId());
+        return deckRepo.save(deck);
+    }
+    public Card getCardFromDeck(Long deckId, int index) {
+        Deck deck = deckRepo.findById(deckId)
+                .orElseThrow(() -> new RuntimeException("Deck not found with id: " + deckId));
+
+        if (index < 0 || index >= deck.getCardIds().size()) {
+            throw new IndexOutOfBoundsException("Invalid card index: " + index);
+        }
+
+        Long cardId = deck.getCardIds().get(index);
+        return cardRepo.findById(cardId)
+                .orElseThrow(() -> new RuntimeException("Card not found with id: " + cardId));
+    }
+
+    /** Populate deck with full Card objects */
+    public Deck populateDeckCards(Deck deck) {
+        if (deck.getCardIds() != null && !deck.getCardIds().isEmpty()) {
+            List<Card> cards = cardRepo.findAllById(deck.getCardIds());
+            deck.setCards(cards);
+        } else {
+            deck.setCards(new ArrayList<>());
+        }
+        return deck;
+    }
+    public Deck removeDeckCards(Long deckId, Long cardId) {
+        Deck deck = deckRepo.findById(deckId)
+                .orElseThrow(() -> new RuntimeException("Deck not found with id: " + deckId));
+
+        deck.getCardIds().remove(cardId);
+        return deckRepo.save(deck);
+    }
 }
-
