@@ -97,7 +97,7 @@ public class DeckService {
         Deck deck = deckRepo.findById(deckId)
                 .orElseThrow(() -> new RuntimeException("Deck not found with id: " + deckId));
 
-        deck.getCardIds().remove(cardId);
+        deck.getCardIds().removeIf(id -> id.equals(cardId));
         return deckRepo.save(deck);
     }
 }

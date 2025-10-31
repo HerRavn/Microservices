@@ -5,6 +5,7 @@ import com.example.game_logic.card.CardService;
 import com.example.game_logic.decks.Deck;
 import com.example.game_logic.decks.DeckService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
@@ -63,6 +64,7 @@ public class GameStateService {
     /**
      * Execute a complete turn: player draws, decides to swap, computer takes turn
      */
+    @Transactional
     public GameStateResponse executePlayerTurn(Long gameId, boolean playerSwaps, Integer cardIndexToSwap) {
         GameState gameState = gameStateRepo.findById(gameId)
                 .orElseThrow(() -> new RuntimeException("Game not found with id: " + gameId));
@@ -87,7 +89,7 @@ public class GameStateService {
             return buildResponse(gameState, null, "Game over - no more cards in deck!");
         }
 
-        Card drawnCard = cardService.getCardById(drawnCardIds.get(0));
+        Card drawnCard = cardService.getCardById(drawnCardIds.getFirst());
         Deck playerHand = deckService.getDeck(gameState.getPlayerHand().getDeckId());
         Deck openTableDeck = deckService.getDeck(gameState.getOpenTableDeck().getDeckId());
 

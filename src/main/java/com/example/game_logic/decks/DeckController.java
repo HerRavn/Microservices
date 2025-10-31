@@ -41,7 +41,7 @@ public class DeckController {
         }
         return ResponseEntity.ok(drawnCard);
     }*/
-    @PostMapping("/remove/{cardId}")
+    @PostMapping("/{deckId}/remove/{cardId}")
     public ResponseEntity<Deck> removeDeckCards(@PathVariable Long deckId, @PathVariable Long cardId) {
         Deck updatedDeck = deckService.removeDeckCards(deckId, cardId);
         return ResponseEntity.ok(updatedDeck);
