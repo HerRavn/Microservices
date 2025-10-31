@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Play, RefreshCw, X } from 'lucide-react';
 
-
 export default function CardGame() {
-  const [gameId, setGameId] = useState(null);
-  const [gameState, setGameState] = useState(null);
-  const [drawnCard, setDrawnCard] = useState(null);
-  const [selectedCardIndex, setSelectedCardIndex] = useState(null);
+  const [gameId, setGameId] = useState<number | null>(null);
+  const [gameState, setGameState] = useState<any>(null);
+  const [drawnCard, setDrawnCard] = useState<any>(null);
+  const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [waitingForAction, setWaitingForAction] = useState(false);
@@ -14,7 +13,7 @@ export default function CardGame() {
   // Initialize cards in the database
   const initializeCards = async () => {
     try {
-      await fetch(`${API_BASE_URL}/cards/init`, { method: 'POST' });
+      await fetch(`api/cards/init`, { method: 'POST' });
     } catch (error) {
       console.error('Error initializing cards:', error);
     }
@@ -109,7 +108,7 @@ export default function CardGame() {
     setLoading(false);
   };
 
-  const getCardDisplay = (card) => {
+  const getCardDisplay = (card: any) => {
     const rankMap = {
       1: 'A',
       11: 'J',
@@ -131,7 +130,7 @@ export default function CardGame() {
     return { rank, suit, isRed };
   };
 
-  const CardComponent = ({ card, onClick, selected, isDrawn }) => {
+  const CardComponent = ({ card, onClick, selected, isDrawn }: any) => {
     const { rank, suit, isRed } = getCardDisplay(card);
 
     return (
