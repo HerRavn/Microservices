@@ -26,6 +26,7 @@ public class GameStateService {
     /**
      * Initialize a new game with shuffled deck and dealt hands
      */
+    @Transactional
     public GameState initializeGame() {
         // Create card IDs for a full deck
         List<Long> cardIds = new ArrayList<>();
@@ -62,10 +63,10 @@ public class GameStateService {
     }
 
     /**
-     * Execute a complete turn: player draws, decides to swap, computer takes turn
+     * Execute a complete turn: player draws from main deck or open table, decides to swap, computer takes turn
      */
     @Transactional
-    public GameStateResponse executePlayerTurn(Long gameId, boolean playerSwaps, Integer cardIndexToSwap) {
+    public GameStateResponse executePlayerTurn(Long gameId, String drawFrom, boolean playerSwaps, Integer cardIndexToSwap) {
         GameState gameState = gameStateRepo.findById(gameId)
                 .orElseThrow(() -> new RuntimeException("Game not found with id: " + gameId));
 
@@ -73,27 +74,51 @@ public class GameStateService {
             return buildResponse(gameState, null, "Game is already over!");
         }
 
-        // Check if main deck has cards
+        // Validate drawFrom parameter
+        if (drawFrom == null || (!drawFrom.equals("mainDeck") && !drawFrom.equals("openTable"))) {
+            return buildResponse(gameState, null, "Invalid draw source! Must be 'mainDeck' or 'openTable'.");
+        }
+
         Deck mainDeck = deckService.getDeck(gameState.getMainDeck().getDeckId());
-        if (mainDeck.getCardIds().isEmpty()) {
-            gameState.setGameOver(true);
-            gameStateRepo.save(gameState);
-            return buildResponse(gameState, null, "Game over - no more cards in deck!");
-        }
-
-        // Player draws a card
-        List<Long> drawnCardIds = deckService.drawCards(mainDeck.getDeckId(), 1);
-        if (drawnCardIds.isEmpty()) {
-            gameState.setGameOver(true);
-            gameStateRepo.save(gameState);
-            return buildResponse(gameState, null, "Game over - no more cards in deck!");
-        }
-
-        Card drawnCard = cardService.getCardById(drawnCardIds.getFirst());
-        Deck playerHand = deckService.getDeck(gameState.getPlayerHand().getDeckId());
         Deck openTableDeck = deckService.getDeck(gameState.getOpenTableDeck().getDeckId());
 
-        String message = "Player drew " + drawnCard.getValue() + " of " + drawnCard.getSuite() + ". ";
+        Card drawnCard;
+        String message = "";
+
+        // Draw from specified source
+        if ("openTable".equals(drawFrom)) {
+            // Validate that open table is not empty
+            if (openTableDeck.getCardIds().isEmpty()) {
+                return buildResponse(gameState, null, "Cannot draw from open table - it's empty! Please draw from main deck.");
+            }
+
+            // Draw from open table (take the last card)
+            List<Long> openTableCardIds = openTableDeck.getCardIds();
+            Long drawnCardId = openTableCardIds.get(openTableCardIds.size() - 1);
+            drawnCard = cardService.getCardById(drawnCardId);
+            deckService.removeDeckCards(openTableDeck.getDeckId(), drawnCardId);
+            message = "Player drew " + drawnCard.getValue() + " of " + drawnCard.getSuite() + " from open table. ";
+        } else {
+            // Draw from main deck
+            if (mainDeck.getCardIds().isEmpty()) {
+                gameState.setGameOver(true);
+                calculateFinalScores(gameState);
+                gameStateRepo.save(gameState);
+                return buildResponse(gameState, null, "Game over - no more cards in deck!");
+            }
+
+            List<Long> drawnCardIds = deckService.drawCards(mainDeck.getDeckId(), 1);
+            if (drawnCardIds.isEmpty()) {
+                gameState.setGameOver(true);
+                calculateFinalScores(gameState);
+                gameStateRepo.save(gameState);
+                return buildResponse(gameState, null, "Game over - no more cards in deck!");
+            }
+            drawnCard = cardService.getCardById(drawnCardIds.get(0));
+            message = "Player drew " + drawnCard.getValue() + " of " + drawnCard.getSuite() + " from main deck. ";
+        }
+
+        Deck playerHand = deckService.getDeck(gameState.getPlayerHand().getDeckId());
 
         // Handle player's swap decision
         if (playerSwaps && cardIndexToSwap != null) {
@@ -116,59 +141,136 @@ public class GameStateService {
             deckService.addCardToDeck(openTableDeck.getDeckId(), drawnCard);
         }
 
-        // Computer's turn
-        message += executeComputerTurn(gameState);
+        // Computer's turn (only if game is not over)
+        if (!gameState.isGameOver()) {
+            message += executeComputerTurn(gameState);
+        }
 
-        // Increment round number
-        gameState.setRoundNumber(gameState.getRoundNumber() + 1);
+        // Check if game should end
+        checkGameEnd(gameState);
+
+        // Increment round number only if game is not over
+        if (!gameState.isGameOver()) {
+            gameState.setRoundNumber(gameState.getRoundNumber() + 1);
+        }
         gameStateRepo.save(gameState);
 
-        // Refresh all decks for response
+        // Refresh game state for response
         gameState = gameStateRepo.findById(gameId).orElseThrow();
 
         return buildResponse(gameState, drawnCard, message);
     }
 
     /**
-     * Computer AI logic: draws a card and swaps if drawn card is lower
+     * Computer AI logic with improved strategy:
+     * 1. Check if open table card is better than worst card in hand - if so, take it
+     * 2. Otherwise draw from main deck
+     * 3. Swap if drawn card has better score than worst card in hand
      */
     private String executeComputerTurn(GameState gameState) {
         Deck mainDeck = deckService.getDeck(gameState.getMainDeck().getDeckId());
-
-        if (mainDeck.getCardIds().isEmpty()) {
-            return "Computer cannot draw - deck empty.";
-        }
-
-        List<Long> computerDrawnIds = deckService.drawCards(mainDeck.getDeckId(), 1);
-        if (computerDrawnIds.isEmpty()) {
-            return "Computer cannot draw - deck empty.";
-        }
-
-        Card computersCard = cardService.getCardById(computerDrawnIds.get(0));
-        Deck computerHand = deckService.getDeck(gameState.getComputerHand().getDeckId());
         Deck openTableDeck = deckService.getDeck(gameState.getOpenTableDeck().getDeckId());
+        Deck computerHand = deckService.getDeck(gameState.getComputerHand().getDeckId());
 
-        String computerMessage = "Computer drew " + computersCard.getValue() + " of " + computersCard.getSuite() + ". ";
+        Card drawnCard = null;
+        String drawSource = "";
 
-        // Computer logic: swap if drawn card is lower than any card in hand
-        boolean swapped = false;
-        for (Card card : computerHand.getCards()) {
-            if (computersCard.getValue() < card.getValue()) {
-                deckService.removeDeckCards(computerHand.getDeckId(), card.getId());
-                deckService.addCardToDeck(openTableDeck.getDeckId(), card);
-                deckService.addCardToDeck(computerHand.getDeckId(), computersCard);
-                computerMessage += "Computer swapped out " + card.getValue() + " of " + card.getSuite() + ".";
-                swapped = true;
-                break;
+        // Strategy 1: Check if open table has a beneficial card
+        if (!openTableDeck.getCardIds().isEmpty()) {
+            Long topCardId = openTableDeck.getCardIds().get(openTableDeck.getCardIds().size() - 1);
+            Card topOpenCard = cardService.getCardById(topCardId);
+            int topCardScore = cardService.calculateCardScore(topOpenCard);
+
+            // Find worst (highest score) card in computer's hand
+            int worstScore = Integer.MIN_VALUE;
+            for (Card card : computerHand.getCards()) {
+                int score = cardService.calculateCardScore(card);
+                if (score > worstScore) {
+                    worstScore = score;
+                }
+            }
+
+            // Take from open table if it improves hand
+            if (topCardScore < worstScore) {
+                deckService.removeDeckCards(openTableDeck.getDeckId(), topCardId);
+                drawnCard = topOpenCard;
+                drawSource = "open table";
             }
         }
 
-        if (!swapped) {
-            deckService.addCardToDeck(openTableDeck.getDeckId(), computersCard);
+        // Strategy 2: If didn't take from open table, draw from main deck
+        if (drawnCard == null) {
+            if (mainDeck.getCardIds().isEmpty()) {
+                return "Computer cannot draw - deck empty. ";
+            }
+
+            List<Long> computerDrawnIds = deckService.drawCards(mainDeck.getDeckId(), 1);
+            if (computerDrawnIds.isEmpty()) {
+                return "Computer cannot draw - deck empty. ";
+            }
+
+            drawnCard = cardService.getCardById(computerDrawnIds.get(0));
+            drawSource = "main deck";
+        }
+
+        String computerMessage = "Computer drew " + drawnCard.getValue() +
+                " of " + drawnCard.getSuite() + " from " + drawSource + ". ";
+
+        // Strategy 3: Decide whether to swap based on scores
+        int drawnCardScore = cardService.calculateCardScore(drawnCard);
+
+        Card worstCard = null;
+        int worstScore = Integer.MIN_VALUE;
+
+        // Find the worst (highest score) card in hand
+        for (Card card : computerHand.getCards()) {
+            int cardScore = cardService.calculateCardScore(card);
+            if (cardScore > worstScore) {
+                worstScore = cardScore;
+                worstCard = card;
+            }
+        }
+
+        // Swap if drawn card is better (lower score) than worst card in hand
+        if (worstCard != null && drawnCardScore < worstScore) {
+            deckService.removeDeckCards(computerHand.getDeckId(), worstCard.getId());
+            deckService.addCardToDeck(openTableDeck.getDeckId(), worstCard);
+            deckService.addCardToDeck(computerHand.getDeckId(), drawnCard);
+            computerMessage += "Computer swapped out " + worstCard.getValue() +
+                    " of " + worstCard.getSuite() + ".";
+        } else {
+            deckService.addCardToDeck(openTableDeck.getDeckId(), drawnCard);
             computerMessage += "Computer discarded the card.";
         }
 
         return computerMessage;
+    }
+
+    /**
+     * Check if game should end and update game state accordingly
+     */
+    private void checkGameEnd(GameState gameState) {
+        Deck mainDeck = deckService.getDeck(gameState.getMainDeck().getDeckId());
+
+        // Game ends when no cards left to draw
+        if (mainDeck.getCardIds().isEmpty()) {
+            gameState.setGameOver(true);
+            calculateFinalScores(gameState);
+        }
+    }
+
+    /**
+     * Calculate and save final scores when game ends
+     */
+    private void calculateFinalScores(GameState gameState) {
+        Deck playerHand = deckService.getDeck(gameState.getPlayerHand().getDeckId());
+        Deck computerHand = deckService.getDeck(gameState.getComputerHand().getDeckId());
+
+        int playerFinalScore = cardService.calculateHandScore(playerHand.getCards());
+        int computerFinalScore = cardService.calculateHandScore(computerHand.getCards());
+
+        gameState.setPlayerScore(playerFinalScore);
+        gameState.setComputerScore(computerFinalScore);
     }
 
     /**
@@ -183,12 +285,13 @@ public class GameStateService {
     /**
      * End the game and clean up
      */
+    @Transactional
     public void endGame(Long gameId) {
         gameStateRepo.deleteById(gameId);
     }
 
     /**
-     * Build the response DTO
+     * Build the response DTO with current game state
      */
     private GameStateResponse buildResponse(GameState gameState, Card drawnCard, String message) {
         Deck playerHand = deckService.getDeck(gameState.getPlayerHand().getDeckId());
@@ -196,16 +299,43 @@ public class GameStateService {
         Deck mainDeck = deckService.getDeck(gameState.getMainDeck().getDeckId());
         Deck openTableDeck = deckService.getDeck(gameState.getOpenTableDeck().getDeckId());
 
+        // Calculate current scores
+        int playerScore = cardService.calculateHandScore(playerHand.getCards());
+        int computerScore = cardService.calculateHandScore(computerHand.getCards());
+
+        // Get top card from open table (last card in the list)
+        Card topOpenTableCard = null;
+        if (!openTableDeck.getCardIds().isEmpty()) {
+            Long topCardId = openTableDeck.getCardIds().get(openTableDeck.getCardIds().size() - 1);
+            topOpenTableCard = cardService.getCardById(topCardId);
+        }
+
+        // Add winner information to message if game is over
+        if (gameState.isGameOver()) {
+            message += "\n--- GAME OVER ---\n";
+            message += "Final Scores: Player = " + playerScore + ", Computer = " + computerScore + "\n";
+            if (playerScore < computerScore) {
+                message += "🎉 Player wins!";
+            } else if (computerScore < playerScore) {
+                message += "💻 Computer wins!";
+            } else {
+                message += "🤝 It's a tie!";
+            }
+        }
+
         GameStateResponse response = new GameStateResponse();
         response.setGameId(gameState.getGameId());
         response.setPlayerHand(playerHand.getCards());
-        response.setComputerHandSize(computerHand.getCards().size()); // Hide computer's actual cards
+        response.setComputerHandSize(computerHand.getCards().size()); // Hide computer's actual cards during play
         response.setDrawnCard(drawnCard);
+        response.setTopOpenTableCard(topOpenTableCard);
         response.setMainDeckSize(mainDeck.getCardIds().size());
         response.setOpenTableSize(openTableDeck.getCardIds().size());
         response.setRoundNumber(gameState.getRoundNumber());
         response.setGameOver(gameState.isGameOver());
         response.setMessage(message);
+        response.setPlayerScore(playerScore);
+        response.setComputerScore(computerScore);
 
         return response;
     }

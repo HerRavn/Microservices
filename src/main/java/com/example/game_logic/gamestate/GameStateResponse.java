@@ -17,9 +17,12 @@ public class GameStateResponse {
     private List<Card> playerHand;
     private int computerHandSize; // Don't reveal computer's cards
     private Card drawnCard; // The card that was just drawn (null if just getting state)
+    private Card topOpenTableCard; // The top card on the open table deck
     private int mainDeckSize;
     private int openTableSize;
     private int roundNumber;
     private boolean gameOver;
     private String message;
+    private int playerScore;
+    private int computerScore;
 }

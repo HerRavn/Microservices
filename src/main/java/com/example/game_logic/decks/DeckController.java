@@ -1,6 +1,5 @@
 package com.example.game_logic.decks;
 
-import com.example.game_logic.card.Card;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,14 +32,7 @@ public class DeckController {
         return ResponseEntity.ok(deckService.saveDeck(deck));
     }
 
-    /*@PostMapping("/{id}/draw")
-    public ResponseEntity<Card> drawCard(@PathVariable Long id) {
-        Card drawnCard = deckService.drawCard(id);
-        if (drawnCard == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(drawnCard);
-    }*/
+
     @PostMapping("/{deckId}/remove/{cardId}")
     public ResponseEntity<Deck> removeDeckCards(@PathVariable Long deckId, @PathVariable Long cardId) {
         Deck updatedDeck = deckService.removeDeckCards(deckId, cardId);

@@ -1,6 +1,5 @@
 package com.example.game_logic.card;
 
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -45,5 +44,51 @@ public class CardService {
 
     public Card getCardById(Long cardId){
         return cardRepo.findById(cardId).orElse(null);
+    }
+
+    /**
+     * Calculate the score for a card based on game rules:
+     * - 10 of diamonds: -10
+     * - 10 of hearts: -10
+     * - All aces: -5
+     * - All kings: 0
+     * - 2-9: face value
+     * - 10s (except diamonds/hearts), Jacks, Queens: 10
+     */
+    public int calculateCardScore(Card card) {
+        int value = card.getValue();
+        Suite suite = card.getSuite();
+
+        // Aces are -5
+        if (value == 1) {
+            return -5;
+        }
+
+        // Kings are 0
+        if (value == 13) {
+            return 0;
+        }
+
+        // 10 of diamonds and 10 of hearts are -10
+        if (value == 10 && (suite == Suite.DIAMONDS || suite == Suite.HEARTS)) {
+            return -10;
+        }
+
+        // 2-9 are face value
+        if (value >= 2 && value <= 9) {
+            return value;
+        }
+
+        // 10s (clubs/spades), Jacks (11), Queens (12) are 10
+        return 10;
+    }
+
+    /**
+     * Calculate total score for a list of cards
+     */
+    public int calculateHandScore(List<Card> cards) {
+        return cards.stream()
+                .mapToInt(this::calculateCardScore)
+                .sum();
     }
 }

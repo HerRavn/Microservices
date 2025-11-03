@@ -29,7 +29,7 @@ public class GameStateController {
     /**
      * Execute a player turn (draw and optionally swap)
      * POST /api/game/{gameId}/turn
-     * Body: { "swap": true, "cardIndexToSwap": 2 }
+     * Body: { "drawFrom": "mainDeck" or "openTable", "swap": true, "cardIndexToSwap": 2 }
      */
     @PostMapping("/{gameId}/turn")
     public ResponseEntity<GameStateResponse> playerTurn(
@@ -38,6 +38,7 @@ public class GameStateController {
 
         GameStateResponse response = gameStateService.executePlayerTurn(
                 gameId,
+                request.getDrawFrom(),
                 request.isSwap(),
                 request.getCardIndexToSwap()
         );

@@ -11,6 +11,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class PlayerTurnRequest {
+    private String drawFrom; // "mainDeck" or "openTable"
     private boolean swap;
     private Integer cardIndexToSwap; // Can be null if swap is false
 }

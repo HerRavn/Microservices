@@ -1,6 +1,5 @@
 package com.example.game_logic;
 
-import com.example.game_logic.card.CardService;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
