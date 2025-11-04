@@ -76,14 +76,25 @@ function App() {
     setDrawFrom(null);
   };
 
-    const endGame = async () => {
-      await fetch(`http://localhost:8081/api/game/${gameState.gameId}`, {
-        method: 'DELETE'
+   const endGame = async () => {
+     const response = await fetch(`http://localhost:8081/api/game/${gameState.gameId}/end`, {
+       method: 'POST'
+     });
+     const data = await response.json();
+     setGameState(data); // This will trigger the game over screen
+   };
+
+    const saveGameResult = async (playerName: string) => {
+      await fetch('http://localhost:8082/api/results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerName: playerName,
+          playerScore: gameState.playerScore,
+          computerScore: gameState.computerScore,
+          rounds: gameState.roundNumber
+        })
       });
-      setGameState(null);
-      setDrawnCard(null);
-      setSelectedCardIndex(null);
-      setDrawFrom(null);
     };
 
   return (
@@ -116,6 +127,28 @@ function App() {
               </div>
             </div>
           )}
+      <div style={{ marginBottom: '20px' }}>
+        {!gameState.gameOver && (
+          <button onClick={endGame} style={{ marginLeft: '10px' }}>
+            End Game
+          </button>
+        )}
+    {gameState && gameState.gameOver && (
+                <div>
+                  <h2>🎉 Game Over!</h2>
+                  <button onClick={() => {
+                    const name = prompt('Enter your name:');
+                    if (name) {
+                      saveGameResult(name);
+                      alert('Result saved!');
+                    }
+                  }}>
+                    Save Result
+                  </button>
+                  <button onClick={startGame}>Start New Game</button>
+                </div>
+              )}
+      </div>
 
           <h2>Player Hand (Click to select)</h2>
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -158,12 +191,6 @@ function App() {
             />
           ) : (
             <p>Empty</p>
-          )}
-
-          {gameState && !gameState.gameOver && (
-            <button onClick={endGame} style={{ marginLeft: '10px' }}>
-              End Game
-            </button>
           )}
 
           <p>Scores - You: {gameState.playerScore} | Computer: {gameState.computerScore}</p>
