@@ -85,14 +85,11 @@ function App() {
    };
 
     const saveGameResult = async (playerName: string) => {
-      await fetch('http://localhost:8082/api/results', {
+      await fetch(`http://localhost:8081/api/game/${gameState.gameId}/save-result`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          playerName: playerName,
-          playerScore: gameState.playerScore,
-          computerScore: gameState.computerScore,
-          rounds: gameState.roundNumber
+          playerName: playerName
         })
       });
     };
