@@ -7,7 +7,7 @@ function App() {
   const [drawFrom, setDrawFrom] = useState<string | null>(null);
 
   const startGame = async () => {
-    const response = await fetch('http://localhost:8081/api/game/start', {
+    const response = await fetch('http://localhost:8080/api/game/start', {
       method: 'POST'
     });
     const data = await response.json();
@@ -18,7 +18,7 @@ function App() {
   };
 
   const drawCard = async (source: 'mainDeck' | 'openTable') => {
-    const response = await fetch(`http://localhost:8081/api/game/${gameState.gameId}/draw?from=${source}`, {
+    const response = await fetch(`http://localhost:8080/api/game/${gameState.gameId}/draw?from=${source}`, {
       method: 'POST'
     });
     const card = await response.json();
@@ -44,7 +44,7 @@ function App() {
     };
     console.log('Sending request body:', JSON.stringify(requestBody));
 
-    const response = await fetch(`http://localhost:8081/api/game/${gameState.gameId}/complete-turn`, {
+    const response = await fetch(`http://localhost:8080/api/game/${gameState.gameId}/complete-turn`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -58,7 +58,7 @@ function App() {
   };
 
   const discardCard = async () => {
-    const response = await fetch(`http://localhost:8081/api/game/${gameState.gameId}/complete-turn`, {
+    const response = await fetch(`http://localhost:8080/api/game/${gameState.gameId}/complete-turn`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -77,7 +77,7 @@ function App() {
   };
 
    const endGame = async () => {
-     const response = await fetch(`http://localhost:8081/api/game/${gameState.gameId}/end`, {
+     const response = await fetch(`http://localhost:8080/api/game/${gameState.gameId}/end`, {
        method: 'POST'
      });
      const data = await response.json();
@@ -85,7 +85,7 @@ function App() {
    };
 
     const saveGameResult = async (playerName: string) => {
-      await fetch(`http://localhost:8081/api/game/${gameState.gameId}/save-result`, {
+      await fetch(`http://localhost:8080/api/game/${gameState.gameId}/save-result`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
